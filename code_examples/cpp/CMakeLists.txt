@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.18)
+project(CudaProject LANGUAGES CXX CUDA)
+
+set(CMAKE_CUDA_STANDARD 17)
+
+add_executable(vector_scaling vector_scaling.cu)
+add_executable(classic_matrix_multiplication classic_matrix_multiplication.cu)
+add_executable(optimized_matrix_multiplication classic_matrix_multiplication.cu)
+
+set_target_properties(vector_scaling PROPERTIES CUDA_ARCHITECTURES native)
+set_target_properties(classic_matrix_multiplication PROPERTIES CUDA_ARCHITECTURES native)
+set_target_properties(optimized_matrix_multiplication PROPERTIES CUDA_ARCHITECTURES native)
