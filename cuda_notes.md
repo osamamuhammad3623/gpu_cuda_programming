@@ -20,6 +20,8 @@
 
 - TMA: Tensor Memory Accelerator
 
+- OpenCL: Open Computing Languages
+
 ## General Notes
 
 - CUDA can now run on AMD GPUs using a ROCm (AMD platform) tool called Hipify, that migrates CUDA to AMD's HIP C++.
@@ -221,6 +223,21 @@ Hit at any level returns the data immediately and stops the search.
 - Write result back to Global Memory.
 
 - execution visualization: https://youtu.be/ccHyFnEZt7M?si=URNIv9GtnHwP2u9u
+
+### More-elements-per-thread trick
+
+- usually we implement the kernel so that each thread should process/work on 1 element of data. what if we let 1 thread process 4 elements of data?
+
+- the following image shows how can 1 thread process 4 elements of data, and how this affects the performance.
+
+![](images/data_n_threads.png)
+![](images/data_n_threads_2.png)
+
+---
+
+- nice note from NVidia GTC 2025 about using frameworks, libs and hard-coded kernels. 
+
+![](images/nvidia_note.png)
 
 ## Open Topics
 - MPI
