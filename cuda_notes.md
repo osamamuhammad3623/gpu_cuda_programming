@@ -26,7 +26,6 @@
 
 - CUDA can now run on AMD GPUs using a ROCm (AMD platform) tool called Hipify, that migrates CUDA to AMD's HIP C++.
 
-
 - CUDA uses the SIMT architecture: 1 single instruction will be executed by multiple threads on their respective data.
 
 - The Host (CPU): Manages the application logic, memory allocation, and orchestrates data movement. It treats the GPU as a "coprocessor." (a small collection of very powerful cores)
@@ -92,6 +91,8 @@
 cudaMemPrefetchAsync(ptr, size, deviceID, stream);
 kernel<<<...>>>(ptr);
 ```
+
+- Performance Tip: ensure that the operations in the kernel are not "expensive" when performed by the GPU, for example, the modulo operator % is expensive, so u should replace it with a simpler operation. Generally speaking, operations other than add/subtract/multiply are relatively expensive and takes many clock cycles to be performed. 
 
 ### Branch divergence
 - it occurs when threads within that same warp encounter a conditional statement (like `if`) and some evaluate to `true` while others evaluate to `false`, leading to threads being executed in serial. this happens as the warp has 1 program counter, so its threads can not be in 2 places at once, so the it masks the active threads at each step.
@@ -185,16 +186,27 @@ Hit at any level returns the data immediately and stops the search.
 
 - register spilling: occurs when a thread tries to use more variables than the available hardware registers can hold, so the compiler "spills" the extra data into Local Memory (resides in Global Memory). what's new in CUDA 12: NVIDIA recently introduced a feature called __Shared Memory Register Spilling__, this allows the compiler to spill data into unused Shared Memory instead of Local Memory, which is much faster.
 
-- if multiple threads in a warp access the exact same address (the same value) within a bank, or if they access completely different banks, there is zero performance penalty, but: 
+- if multiple threads in a warp access (read) the exact same address (the same value) within a bank, or if they access completely different banks, there is zero performance penalty, but: 
 
 ![](images/bank_conflict.png)
+
+- Broadcast: a hardware mechanism that allows multiple threads in a warp to access (read) the exact same address (the same value) within the same bank with no performance penalty.
 
 - Thread Block Clusters (introduced in Hopper), allows blocks to communicate with each other across different SMs, breaking the old "blocks are independent" rule slightly for performance.
 
 - Distributed Shared Memory (DSMEM): This is the magic behind Thread Block Clusters. It allows a thread in Block A to directly read/write the Shared Memory of Block B (if they are in the same cluster), which was previously impossible.
 
+### Memory Coalescing
+- it's a hardware optimization technique, happens when consecutive threads (in the same warp) access consecutive global memory addresses. When this happens, the hardware combines (coalesces) these individual memory-access requests into a single memory transaction (read operation), significantly increasing throughput. this is faster than reading strided or random memory addresses.
+
+- in matrix maltiplication for example, the matrix rows and cols are stored in 1 long consecutive physical memory addresses, so when the threads of a warp are accessing a row, they access consecutive memory addresses, hopefully on 1 read operation, but when they access a col; where its addresses are strided, this might take more read operations (depending on matrix size) which results in more time.\
+one optimization is to transpose the cols to be physically aligned/consecutive in the memory, or you can transpose the rows to make the multiplication slower :D
+
+![](images/coalesced_cols.jpg)
+![](images/coalesced_rows.jpg)
+
 ### Padding Trick
-- in the following example, the struct has 4 floats (16 bytes), so thread 0 accesses shared[0].x (bank 0), .., thread 8 accesses shared[8].x which is 8*4 = 32 bytes away, meaning that it accesses bank 0 again, at the same time Thread 0 is hitting it. This causes an 8-way bank conflict across the warp, forcing the hardware to serialize the requests and drastically increasing the cycle count (e.g. 11 clock cycles).
+- in the following example, the struct has 4 floats (16 bytes), so thread 0 accesses shared[0].x (bank 0), .., thread 8 accesses shared[8].x which is 8*4 = 32 bytes away, meaning that it accesses bank 0 again, at the same time Thread 0 is hitting it. This causes an 8-way __bank conflict__ across the warp, forcing the hardware to serialize the requests and drastically increasing the cycle count (e.g. 11 clock cycles).
 
 ![](images/tricky_ex.png)
 
@@ -226,7 +238,7 @@ Hit at any level returns the data immediately and stops the search.
 
 ### More-elements-per-thread trick
 
-- usually we implement the kernel so that each thread should process/work on 1 element of data. what if we let 1 thread process 4 elements of data?
+- usually we implement the kernel so that each thread should process/work on 1 element of data. what if we let 1 thread process 4 elements of data? In sum reduction (sum all elements), this trick can be used to parallelize the execution.
 
 - the following image shows how can 1 thread process 4 elements of data, and how this affects the performance.
 
