@@ -4,15 +4,23 @@
 #include <cuda_runtime.h>
 
 // CUDA Kernel: Each thread scales one element
-__global__ void scaleVectorGPU(float* data, float scalar, int n) {
+__global__ void scaleFloatVector(float* data, float scalar, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
         data[i] *= scalar;
     }
 }
 
+// CUDA Kernel: Each thread scales one element
+__global__ void scaleIntVector(float* data, float scalar, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        data[i] *= (int)scalar;
+    }
+}
+
 // CUDA Kernel: Each thread adds the scalar value to each element
-__global__ void addVectorGPU(float* data, float scalar, int n) {
+__global__ void addVector(float* data, float scalar, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
         data[i] += scalar;
@@ -20,7 +28,7 @@ __global__ void addVectorGPU(float* data, float scalar, int n) {
 }
 
 // CUDA Kernel: Each thread divides each element by the scalar value
-__global__ void divideVectorGPU(float* data, float scalar, int n) {
+__global__ void divideVector(float* data, float scalar, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
         data[i] /= scalar;
@@ -28,7 +36,7 @@ __global__ void divideVectorGPU(float* data, float scalar, int n) {
 }
 
 // CUDA Kernel: Each thread checks if each element is even
-__global__ void moduloVectorGPU(float* data, float scalar, int n) {
+__global__ void moduloVector(float* data, float scalar, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
         data[i] = ((int)data[i] % 2 == 0);
@@ -36,7 +44,7 @@ __global__ void moduloVectorGPU(float* data, float scalar, int n) {
 }
 
 // CUDA Kernel: Each thread checks if each element is even (optimized)
-__global__ void isEvenVectorGPU(float* data, float scalar, int n) {
+__global__ void isEvenVector(float* data, float scalar, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
         data[i] = ((int)data[i] & 1 == 0);
@@ -66,45 +74,49 @@ int main() {
     int threadsPerBlock = 256;
     int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
 
-    // scaleVectorGPU kernel
     cudaEventRecord(start);
-    scaleVectorGPU<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
+    scaleFloatVector<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     gpuTime = 0;
     cudaEventElapsedTime(&gpuTime, start, stop);
-    std::cout << "Vector scaling Kernel Time: " << gpuTime << " ms" << std::endl;
+    std::cout << "Vector float scaling Kernel Time: " << gpuTime << " ms" << std::endl;
 
-    // addVectorGPU kernel
     cudaEventRecord(start);
-    addVectorGPU<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
+    scaleIntVector<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    gpuTime = 0;
+    cudaEventElapsedTime(&gpuTime, start, stop);
+    std::cout << "Vector int scaling Kernel Time: " << gpuTime << " ms" << std::endl;
+
+    // addVector kernel
+    cudaEventRecord(start);
+    addVector<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     gpuTime = 0;
     cudaEventElapsedTime(&gpuTime, start, stop);
     std::cout << "Vector addition Kernel Time: " << gpuTime << " ms" << std::endl;
 
-    // divideVectorGPU kernel
     cudaEventRecord(start);
-    divideVectorGPU<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
+    divideVector<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     gpuTime = 0;
     cudaEventElapsedTime(&gpuTime, start, stop);
     std::cout << "Vector division Kernel Time: " << gpuTime << " ms" << std::endl;
 
-    // moduloVectorGPU kernel
     cudaEventRecord(start);
-    moduloVectorGPU<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
+    moduloVector<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     gpuTime = 0;
     cudaEventElapsedTime(&gpuTime, start, stop);
     std::cout << "Vector modulo Kernel Time: " << gpuTime << " ms" << std::endl;
 
-    // isEvenVectorGPU kernel
     cudaEventRecord(start);
-    isEvenVectorGPU<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
+    isEvenVector<<<blocksPerGrid, threadsPerBlock>>>(d_data, scalar, N);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     gpuTime = 0;
