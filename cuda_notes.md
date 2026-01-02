@@ -22,6 +22,8 @@
 
 - OpenCL: Open Computing Languages
 
+- TFLOPS: Tera FLoating-point Operations Per Second
+
 ## General Notes
 
 - CUDA can now run on AMD GPUs using a ROCm (AMD platform) tool called Hipify, that migrates CUDA to AMD's HIP C++.
@@ -38,13 +40,16 @@
 
 - SASS: the actual gpu ISA. CUDA toolkit or the gpu driver converts from PTX to SASS.
 
+- data-parallelism: performing the same operation on different pieces/elements of data independently in parallel.
+- task-parallelism: performing independent funtions/operations in parallel.
+
 - kernel: the entry point for all code executed on the gpu, it's the function that every thread executes.
 
 - `__global__`: called by host, runs on device, kernels are marked with this qualifier.
 - `__device__`: called by device, runs on device.
 - `__host__` (or no qualifier): normal host function, called by host, runs on host.
 
-- `__host__` and `__device__` qualifiers marks where the function "can" run, so the compiler compiles it to host/device arch in compile-time, but they don't specify where the function "will" run - it's a run-time decision. and you can use both `__host__` and `__device__` for the same function.
+- when using both `__host__` and `__device__` qualifiers for the same function, they marks where the function "can" run, so the compiler compiles it (generated object code) to host/device arch in compile-time, but they don't specify where the function "will" run - it's a run-time decision.
 
 - kernel invocation: the host calls a kernel using a triple chevron <<< >>>, giving number of blocks and number of threads per block, e.g. `someKernel<<<100,256>>>` launches 100 blocks of 256 threads.
 
@@ -60,7 +65,7 @@
 
 - in AMD arch, a warp is called a wavefront, and it consists of 64 threads.
 
-- if a warp has less than 32 threads (e.g. a block has less than 32 threads, or number of threads is not multiple of 32), the hardware allocates a full warp of 32 threads, the inactive/idle threads still consume and waste cores and clock cycles. 
+- if a warp has less than 32 threads (e.g. a block has less than 32 threads, or number of threads is not multiple of 32), the hardware (scheduler) allocates a full warp of 32 threads, the inactive/idle threads still consume and waste cores and clock cycles. 
 
 ![](images/threads_blocks.png)
 
@@ -121,7 +126,8 @@ kernel<<<...>>>(ptr);
 
 - GPU is a collection of SMs. Each SM is like a mini-processor with its own set of cores, registers, and a special high-speed Shared Memory (L1-like speed). \
 When you launch a Block of threads, that entire block is assigned to one SM. It stays there until it finishes.\
-One SM can handle multiple blocks at once if it has enough resources (registers and memory).
+One SM can handle multiple blocks at once if it has enough resources (registers and memory), there is a limit on the total number of blocks that can be simultaneously executing in a CUDA device.\
+The scheduler assigns new blocks to SMs when previously assigned blocks complete execution.
 
 ![](images/execution_flow.png)
 
@@ -199,7 +205,7 @@ Hit at any level returns the data immediately and stops the search.
 ### Memory Coalescing
 - it's a hardware optimization technique, happens when consecutive threads (in the same warp) access consecutive global memory addresses. When this happens, the hardware combines (coalesces) these individual memory-access requests into a single memory transaction (read operation), significantly increasing throughput. this is faster than reading strided or random memory addresses.
 
-- in matrix maltiplication for example, the matrix rows and cols are stored in 1 long consecutive physical memory addresses, so when the threads of a warp are accessing a row, they access consecutive memory addresses, hopefully on 1 read operation, but when they access a col; where its addresses are strided, this might take more read operations (depending on matrix size) which results in more time.\
+- in matrix maltiplication for example, the matrix rows and cols are stored in 1 long consecutive physical memory addresses (flat memory), so when the threads of a warp are accessing a row, they access consecutive memory addresses, hopefully on 1 read operation, but when they access a col; where its addresses are strided, this might take more read operations (depending on matrix size) which results in more time.\
 one optimization is to transpose the cols to be physically aligned/consecutive in the memory, or you can transpose the rows to make the multiplication slower :D
 
 ![](images/coalesced_cols.jpg)
@@ -250,6 +256,16 @@ one optimization is to transpose the cols to be physically aligned/consecutive i
 - nice note from NVidia GTC 2025 about using frameworks, libs and hard-coded kernels. 
 
 ![](images/nvidia_note.png)
+
+## Quotes
+
+- Why don't we optimize GPUs for low latency as CPUs?
+
+![](images/image0.png)
+
+- GPGPU before CUDA needed to use the graphics interfaces.
+
+![](images/image1.png) 
 
 ## Open Topics
 - MPI

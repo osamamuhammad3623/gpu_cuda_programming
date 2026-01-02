@@ -5,10 +5,12 @@ set(CMAKE_CUDA_STANDARD 17)
 
 add_executable(vector_scaling vector_scaling.cu)
 add_executable(classic_matrix_multiplication classic_matrix_multiplication.cu)
-add_executable(optimized_matrix_multiplication classic_matrix_multiplication.cu)
+add_executable(optimized_matrix_multiplication optimized_matrix_multiplication.cu)
 add_executable(gpu_operators_cost gpu_operators_cost.cu)
+add_executable(hello_cuda hello_cuda.cu)
 
 set_target_properties(vector_scaling PROPERTIES CUDA_ARCHITECTURES native)
 set_target_properties(classic_matrix_multiplication PROPERTIES CUDA_ARCHITECTURES native)
 set_target_properties(optimized_matrix_multiplication PROPERTIES CUDA_ARCHITECTURES native)
 set_target_properties(gpu_operators_cost PROPERTIES CUDA_ARCHITECTURES native)
+set_target_properties(hello_cuda PROPERTIES CUDA_ARCHITECTURES native)
