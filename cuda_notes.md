@@ -24,6 +24,10 @@
 
 - TFLOPS: Tera FLoating-point Operations Per Second
 
+- HBM: High Bandwidth Memory
+
+- SFU: Special function unit
+
 ## General Notes
 
 - CUDA can now run on AMD GPUs using a ROCm (AMD platform) tool called Hipify, that migrates CUDA to AMD's HIP C++.
@@ -124,12 +128,14 @@ kernel<<<...>>>(ptr);
 
 ### Execution
 
-- GPU is a collection of SMs. Each SM is like a mini-processor with its own set of cores, registers, and a special high-speed Shared Memory (L1-like speed). \
+- GPU is a collection of SMs. Each SM is like a hardware unit with its own set of cores, registers, and a special high-speed Shared Memory (L1-like speed). \
 When you launch a Block of threads, that entire block is assigned to one SM. It stays there until it finishes.\
 One SM can handle multiple blocks at once if it has enough resources (registers and memory), there is a limit on the total number of blocks that can be simultaneously executing in a CUDA device.\
 The scheduler assigns new blocks to SMs when previously assigned blocks complete execution.
 
 ![](images/execution_flow.png)
+
+- the GigaThread Engine (Hardware Block Scheduler, or the Global Scheduler) is a hardware unit that assigns blocks to the SMs.
 
 - If all 32 threads in a Warp are waiting for a memory read from VRAM, that Warp is "stalled." The SM will ignore it and work on other Warps. This is why we need many Warps—to keep the hardware busy while others are waiting in a sequential line for their data.
 
@@ -257,7 +263,7 @@ one optimization is to transpose the cols to be physically aligned/consecutive i
 
 ![](images/nvidia_note.png)
 
-## Quotes
+## Quotes from Books
 
 - Why don't we optimize GPUs for low latency as CPUs?
 
@@ -266,6 +272,10 @@ one optimization is to transpose the cols to be physically aligned/consecutive i
 - GPGPU before CUDA needed to use the graphics interfaces.
 
 ![](images/image1.png) 
+
+- incorrect use of barrier sync
+
+![](images/image2.png)
 
 ## Open Topics
 - MPI
