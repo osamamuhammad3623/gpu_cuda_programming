@@ -12,6 +12,8 @@
 
 - SIMT: Single Instruction, Multiple Thread
 
+- SIMD: Single Instruction, Multiple Data
+
 - PTX: Parallel Thread Execution
 
 - SaSS: Streaming ASSembly
@@ -32,7 +34,7 @@
 
 - CUDA can now run on AMD GPUs using a ROCm (AMD platform) tool called Hipify, that migrates CUDA to AMD's HIP C++.
 
-- CUDA uses the SIMT architecture: 1 single instruction will be executed by multiple threads on their respective data.
+- CUDA uses the SIMD architecture: 1 single instruction will be executed by Multiple Threads on their respective data (Multiple Data).
 
 - The Host (CPU): Manages the application logic, memory allocation, and orchestrates data movement. It treats the GPU as a "coprocessor." (a small collection of very powerful cores)
 
@@ -65,11 +67,16 @@
 
 - Grid: A collection of blocks that execute the same function (the kernel).
 
-- threads are executed in groups of 32, called a Warp. All 32 threads in a warp share a single Program Counter on the hardware level; they must execute the exact same instruction at the same time.
+- threads are executed in groups of 32, called a Warp.
+
+- [__OUTDATED__] All 32 threads in a warp share a single Program Counter on the hardware level; they must execute the exact same instruction at the same time.\
+[__UPDATED__ starting from Volta] each thread in a warp has its own program counter and call stack, so one thread can finish execution before another, but the whole warp still holds the GPU resources, until all of the 32 threads exit.
+
+- only one control unit that fetches and dispatches one instruction to be executed for all threads in the warp, this results in small percentage of hardware for control, more percentage of hardware for arithmetic throughput.
 
 - in AMD arch, a warp is called a wavefront, and it consists of 64 threads.
 
-- if a warp has less than 32 threads (e.g. a block has less than 32 threads, or number of threads is not multiple of 32), the hardware (scheduler) allocates a full warp of 32 threads, the inactive/idle threads still consume and waste cores and clock cycles. 
+- if a warp has less than 32 threads (e.g. a block has less than 32 threads, or number of threads is not multiple of 32), the hardware warp-scheduler allocates a full warp of 32 threads, the inactive/idle threads still consume and waste cores and clock cycles.
 
 ![](images/threads_blocks.png)
 
@@ -103,21 +110,24 @@ kernel<<<...>>>(ptr);
 
 - Performance Tip: ensure that the operations in the kernel are not "expensive" when performed by the GPU, for example, the modulo operator % is expensive, so u should replace it with a simpler operation. Generally speaking, operations other than add/subtract/multiply are relatively expensive and takes many clock cycles to be performed. 
 
-### Branch divergence
-- it occurs when threads within that same warp encounter a conditional statement (like `if`) and some evaluate to `true` while others evaluate to `false`, leading to threads being executed in serial. this happens as the warp has 1 program counter, so its threads can not be in 2 places at once, so the it masks the active threads at each step.
+### Branch divergence 
+
+- [__PARTIALLY OUTDATED__, check below for updated version] it occurs when threads within that same warp encounter a conditional statement (like `if`) and some evaluate to `true` while others evaluate to `false`, leading to threads being executed in serial. this happens as the warp has 1 program counter, so its threads can not be in 2 places at once, so the it masks the active threads at each step.
 
 ![](images/branch_divergence.png)
 
-- so if we have branches similar to the following, all threads will execute A, some threads execute B (and threads that go in path F will stay still). threads that in B path will also be serialized; threads exectue C (path D threads are idle), then execute D (path C threads are idle), etc. the threads serialization is illustrated in the following diagram.
+- [__PARTIALLY OUTDATED__, check below for updated version] so if we have branches similar to the following, all threads will execute A, some threads execute B (and threads that go in path F will stay still). threads that in B path will also be serialized; threads exectue C (path D threads are idle), then execute D (path C threads are idle), etc. the threads serialization is illustrated in the following diagram.
 
 ![](images/branch_di_1.png)
 ![](images/branch_di_2.png)
 
 - reconvergence point: location in the program where threads diverge and continue executing the kernel (e.g. points E and G in the prev diagram). 
 
-- another example :D
+- [__UPDATED__, starting from Volta] the scheduler now "__interleaves__" instructions from the `if` and `else` paths within the same warp; executing an instruction from `if` block (and `else` threads are idle), then executing an instruction from `else` block (and `if` threads are idle), and so on. This allows threads to make "forward progress" independently, preventing deadlocks that used to be a major risk.
 
-![](images/branch_di_3.png)
+![](images/interleave.png)
+
+- do not assume that all threads in a warp have the same execution timing, even if code has no branches, Therefore if all threads in a warp must complete a phase of their execution before any of them can move on, one must use a barrier synchronization mechanism such as `__syncwarp()`.
 
 ### Tiling technique (shared memory blocking)
 - threads collaboratively copy small chunck of data (called Tile) from the global mem to the shared mem so they access them faster instead of accessing the global memory. this technique results in more than 10x faster processing.
@@ -157,9 +167,16 @@ i++;
 - `clock()` : return a clock-cycle counter value, the counter is per-multiprocessor (SM), meaning it's a local timer, not a globally synchronized one across the entire GPU. This is a crucial distinction, as different thread blocks running on different SMs might report different elapsed counts for the same code due to variations in execution.
 
 ## Hide Latency
-- If a Warp requests data from the slow Global Memory, it has to wait 500 cycles. Instead of the SM sitting idle, the SM __instantly__ switches to a different Warp that is ready to do math. By the time that second Warp finishes, the first Warp's data has arrived.
+- If a Warp requests data from the slow Global Memory, it has to wait 500 cycles. Instead of the SM sitting idle, the SM __instantly__ switches to a different Warp that is ready to do math. By the time that second Warp finishes its execution, the first Warp's data has arrived. this mechanism of filling the latency time of operations from some threads with work from other
+threads is called "hide latency".
 
-- To "hide" the latency of global memory, you need many more threads than you have cores. This is why we launch millions of threads even if we only have 5,000 cores.
+- To "hide" the latency of global memory, you need many more threads than you have cores. This is why we launch millions of threads even if we only have 5,000 cores. this is how GPUs tolerate long-latency operations.
+
+![](images/latency_hiding.png)
+
+- Zero-overhead warp scheduling
+
+![](images/zero_overhead.png)
 
 ## GPU Memory
 
